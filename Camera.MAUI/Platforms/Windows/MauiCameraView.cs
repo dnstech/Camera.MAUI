@@ -7,6 +7,7 @@ using Windows.Graphics.Imaging;
 using Panel = Windows.Devices.Enumeration.Panel;
 using Windows.Media.MediaProperties;
 using Windows.Media.Devices;
+using System.Diagnostics;
 
 namespace Camera.MAUI.Platforms.Windows;
 
@@ -64,12 +65,25 @@ public sealed partial class MauiCameraView : UserControl, IDisposable
             frameSource.Controller.VideoDeviceController.ZoomControl.Value = Math.Clamp(zoom, cameraView.Camera.MinZoomFactor, cameraView.Camera.MaxZoomFactor);
         }
     }
-    internal void ForceAutoFocus()
+    internal async void ForceAutoFocus(Rect focalRect)
     {
         if (cameraView.Camera != null && frameSource != null && frameSource.Controller.VideoDeviceController.FocusControl.Supported)
         {
-            frameSource.Controller.VideoDeviceController.FocusControl.SetPresetAsync(FocusPreset.Manual).GetAwaiter().GetResult();
-            frameSource.Controller.VideoDeviceController.FocusControl.SetPresetAsync(FocusPreset.Auto).GetAwaiter().GetResult();
+            await frameSource.Controller.VideoDeviceController.FocusControl.SetPresetAsync(FocusPreset.Manual);
+            await frameSource.Controller.VideoDeviceController.RegionsOfInterestControl.ClearRegionsAsync();
+            
+            // Create a focal box centered around the focal point.
+            await frameSource.Controller.VideoDeviceController.RegionsOfInterestControl.SetRegionsAsync(
+                new[]
+                {
+                    new RegionOfInterest()
+                    {
+                        Bounds = new global::Windows.Foundation.Rect(focalRect.X, focalRect.Y, focalRect.Width, focalRect.Height)
+                    }
+                });
+
+            await frameSource.Controller.VideoDeviceController.FocusControl.SetPresetAsync(FocusPreset.Auto);
+            await frameSource.Controller.VideoDeviceController.FocusControl.FocusAsync();
         }
     }
     internal void UpdateFlashMode()

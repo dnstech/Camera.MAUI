@@ -8,6 +8,7 @@ using CoreMedia;
 using CoreVideo;
 using Foundation;
 using MediaPlayer;
+using Microsoft.Maui.Controls;
 using System.IO;
 using UIKit;
 
@@ -133,7 +134,7 @@ internal class MauiCameraView : UIView, IAVCaptureVideoDataOutputSampleBufferDel
                         };
                         frames = 0;
                         captureDevice = camDevices.First(d => d.UniqueID == cameraView.Camera.DeviceId);
-                        ForceAutoFocus();
+                        ForceAutoFocus(this.cameraView.FocalPoint);
                         captureInput = new AVCaptureDeviceInput(captureDevice, out var err);
                         captureSession.AddInput(captureInput);
                         micDevice = micDevices.First(d => d.UniqueID == cameraView.Microphone.DeviceId);
@@ -196,7 +197,7 @@ internal class MauiCameraView : UIView, IAVCaptureVideoDataOutputSampleBufferDel
                         };
                         frames = 0;
                         captureDevice = camDevices.First(d => d.UniqueID == cameraView.Camera.DeviceId);
-                        ForceAutoFocus();
+                        ForceAutoFocus(this.cameraView.FocalPoint);
                         captureInput = new AVCaptureDeviceInput(captureDevice, out var err);
                         captureSession.AddInput(captureInput);
                         captureSession.AddOutput(videoDataOutput);
@@ -291,17 +292,31 @@ internal class MauiCameraView : UIView, IAVCaptureVideoDataOutputSampleBufferDel
             }
         }
     }
-    internal void ForceAutoFocus()
+    internal void ForceAutoFocus(Rect focalRect)
     {
         if (cameraView.Camera != null && captureDevice != null && captureDevice.IsFocusModeSupported(AVCaptureFocusMode.AutoFocus))
         {
             captureDevice.LockForConfiguration(out NSError error);
             if (error == null)
             {
+                if (captureDevice.FocusPointOfInterestSupported)
+                {
+                    captureDevice.FocusPointOfInterest = new CGPoint(focalRect.Center.X, focalRect.Center.Y);
+                }
+
+                if (captureDevice.ExposurePointOfInterestSupported)
+                {
+                    captureDevice.ExposurePointOfInterest = new CGPoint(focalRect.Center.X, focalRect.Center.Y);
+                }
+
                 if (captureDevice.IsFocusModeSupported(AVCaptureFocusMode.ContinuousAutoFocus))
+                {
                     captureDevice.FocusMode = AVCaptureFocusMode.ContinuousAutoFocus;
+                }
                 else
+                {
                     captureDevice.FocusMode = AVCaptureFocusMode.AutoFocus;
+                }
                 captureDevice.UnlockForConfiguration();
             }
         }

@@ -18,7 +18,9 @@ internal partial class CameraViewHandler : ViewHandler<CameraView, PlatformView>
         [nameof(CameraView.TorchEnabled)] = MapTorch,
         [nameof(CameraView.MirroredImage)] = MapMirroredImage,
         [nameof(CameraView.ZoomFactor)] = MapZoomFactor,
+        [nameof(CameraView.FocalPoint)] = MapFocalPoint,
     };
+
     public static CommandMapper<CameraView, CameraViewHandler> CommandMapper = new(ViewCommandMapper)
     {
     };
@@ -62,6 +64,13 @@ internal partial class CameraViewHandler : ViewHandler<CameraView, PlatformView>
     {
 #if WINDOWS || ANDROID || IOS || MACCATALYST
         handler.PlatformView?.SetZoomFactor(cameraView.ZoomFactor);
+#endif
+    }
+
+    private static void MapFocalPoint(CameraViewHandler handler, CameraView cameraView)
+    {
+#if WINDOWS || ANDROID || IOS || MACCATALYST
+        handler.PlatformView?.ForceAutoFocus(cameraView.FocalPoint);
 #endif
     }
 
@@ -145,10 +154,10 @@ internal partial class CameraViewHandler : ViewHandler<CameraView, PlatformView>
         }
         return Task.Run(() => { return false; });
     }
-    public void ForceAutoFocus()
+    public void ForceAutoFocus(Rect focalPoint)
     {
 #if ANDROID || WINDOWS || IOS || MACCATALYST
-        PlatformView?.ForceAutoFocus();
+        PlatformView?.ForceAutoFocus(focalPoint);
 #endif
     }
     public void ForceDispose()

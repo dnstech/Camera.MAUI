@@ -12,11 +12,26 @@
     <ScrollView>
         <Grid>
             <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center">
-                <cv:CameraView x:Name="cameraView" WidthRequest="300" HeightRequest="200" BarCodeOptions="{Binding BarCodeOptions}" BarCodeResults="{Binding BarCodeResults, Mode=OneWayToSource}"
-                               Cameras="{Binding Cameras, Mode=OneWayToSource}" Camera="{Binding Camera}" AutoStartPreview="{Binding AutoStartPreview}" NumCamerasDetected="{Binding NumCameras, Mode=OneWayToSource}"
-                               AutoSnapShotAsImageSource="True" AutoSnapShotFormat="PNG" TakeAutoSnapShot="{Binding TakeSnapshot}" AutoSnapShotSeconds="{Binding SnapshotSeconds}"
-                               Microphones="{Binding Microphones, Mode=OneWayToSource}" Microphone="{Binding Microphone}" NumMicrophonesDetected="{Binding NumMicrophones, Mode=OneWayToSource}" 
-                               AutoRecordingFile="{Binding RecordingFile}" AutoStartRecording="{Binding AutoStartRecording}"/>
+                <AbsoluteLayout x:Name="cameraViewContainer" WidthRequest="300" HeightRequest="200" Background="Black">
+                    <AbsoluteLayout.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="TapGestureRecognizer_Tapped"/>
+                    </AbsoluteLayout.GestureRecognizers>
+                    <cv:CameraView x:Name="cameraView"
+                                   AbsoluteLayout.LayoutBounds="0,0,1,1" 
+                                   AbsoluteLayout.LayoutFlags="All"
+                                   BarCodeOptions="{Binding BarCodeOptions}" BarCodeResults="{Binding BarCodeResults, Mode=OneWayToSource}"
+                                   Cameras="{Binding Cameras, Mode=OneWayToSource}" Camera="{Binding Camera}" AutoStartPreview="{Binding AutoStartPreview}" NumCamerasDetected="{Binding NumCameras, Mode=OneWayToSource}"
+                                   AutoSnapShotAsImageSource="True" AutoSnapShotFormat="PNG" TakeAutoSnapShot="{Binding TakeSnapshot}" AutoSnapShotSeconds="{Binding SnapshotSeconds}"
+                                   Microphones="{Binding Microphones, Mode=OneWayToSource}" Microphone="{Binding Microphone}" NumMicrophonesDetected="{Binding NumMicrophones, Mode=OneWayToSource}" 
+                                   AutoRecordingFile="{Binding RecordingFile}" AutoStartRecording="{Binding AutoStartRecording}" FocalPoint="{Binding FocalPoint}">
+                    </cv:CameraView>
+                    <Border x:Name="focusReticle" Background="Transparent"
+                            Stroke="CornflowerBlue"
+                            StrokeThickness="2"
+                            AbsoluteLayout.LayoutFlags="PositionProportional"
+                            AbsoluteLayout.LayoutBounds="{Binding FocalPointBounds, Mode=OneWay}"></Border>
+
+                </AbsoluteLayout>
                 <HorizontalStackLayout HorizontalOptions="Center" Margin="5">
                     <Label Text="Select a camera:" VerticalOptions="Center" BackgroundColor="White" TextColor="Black"/>
                     <Picker VerticalOptions="Center" TextColor="Black" ItemsSource="{Binding Cameras}" SelectedItem="{Binding Camera,Mode=TwoWay}"/>

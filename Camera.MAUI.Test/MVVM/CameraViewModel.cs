@@ -94,6 +94,18 @@ public class CameraViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(BarcodeText));
         }
     }
+
+    private Rect focalPoint = new Rect(0.5f, 0.5f, 0.05, 0.05);
+    public Rect FocalPoint
+    {
+        get => focalPoint;
+        set
+        {
+            focalPoint = value;
+            OnPropertyChanged(nameof(FocalPoint));
+        }
+    }
+
     private bool takeSnapshot = false;
     public bool TakeSnapshot 
     { 
@@ -156,6 +168,7 @@ public class CameraViewModel : INotifyPropertyChanged
             TakeSnapshot = false;
             TakeSnapshot = true;
         });
+
 #if IOS
         RecordingFile = Path.Combine(FileSystem.Current.CacheDirectory, "Video.mov");
 #else

@@ -17,6 +17,8 @@ using Android.OS;
 using Android.Renderscripts;
 using RectF = Android.Graphics.RectF;
 using Android.Content.Res;
+using Microsoft.Maui.Controls;
+using static Android.Hardware.Camera;
 
 namespace Camera.MAUI.Platforms.Android;
 
@@ -667,13 +669,31 @@ internal class MauiCameraView: GridLayout
             previewSession.SetRepeatingRequest(previewBuilder.Build(), null, null);
         }
     }
-    internal void ForceAutoFocus()
+    internal void ForceAutoFocus(Microsoft.Maui.Graphics.Rect focalPoint)
     {
         if (previewSession != null && previewBuilder != null && cameraView.Camera != null)
         {
+            // Stop auto focusing
             previewBuilder.Set(CaptureRequest.ControlAfMode, Java.Lang.Integer.ValueOf((int)ControlAFMode.Off));
             previewBuilder.Set(CaptureRequest.ControlAfTrigger, Java.Lang.Integer.ValueOf((int)ControlAFTrigger.Cancel));
             previewSession.SetRepeatingRequest(previewBuilder.Build(), null, null);
+
+            if ((int)camChars.Get(CameraCharacteristics.ControlMaxRegionsAf) >= 1)
+            {
+                Rect sensorArraySize = (Rect)camChars.Get(CameraCharacteristics.SensorInfoActiveArraySize);
+                int x = (int)(focalPoint.Y * sensorArraySize.Width());
+                int y = (int)(focalPoint.X * sensorArraySize.Height());
+                int width = (int)(sensorArraySize.Width() * focalPoint.Width); // Focus rectangle will be a percentage of camera view port
+                int height = (int)(sensorArraySize.Height() * focalPoint.Height); // Focus rectangle will be a percentage of camera view port
+                MeteringRectangle focusAreaTouch = new MeteringRectangle((int)Math.Max(x - (width * 0.5), 0),
+                                                                         (int)Math.Max(y - (height * 0.5), 0),
+                                                                         width,
+                                                                         height,
+                                                                         MeteringRectangle.MeteringWeightMax - 1);
+                previewBuilder.Set(CaptureRequest.ControlAfRegions, new MeteringRectangle[] { focusAreaTouch });
+            }
+
+            // Start auto focusing again
             previewBuilder.Set(CaptureRequest.ControlAfMode, Java.Lang.Integer.ValueOf((int)ControlAFMode.Auto));
             previewBuilder.Set(CaptureRequest.ControlAfTrigger, Java.Lang.Integer.ValueOf((int)ControlAFTrigger.Start));
             previewSession.SetRepeatingRequest(previewBuilder.Build(), null, null);

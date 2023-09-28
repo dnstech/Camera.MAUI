@@ -42,6 +42,7 @@ public class CameraView : View, ICameraView
     public static readonly BindableProperty AutoStartPreviewProperty = BindableProperty.Create(nameof(AutoStartPreview), typeof(bool), typeof(CameraView), false, propertyChanged: AutoStartPreviewChanged);
     public static readonly BindableProperty AutoRecordingFileProperty = BindableProperty.Create(nameof(AutoRecordingFile), typeof(string), typeof(CameraView), string.Empty);
     public static readonly BindableProperty AutoStartRecordingProperty = BindableProperty.Create(nameof(AutoStartRecording), typeof(bool), typeof(CameraView), false, propertyChanged: AutoStartRecordingChanged);
+    public static readonly BindableProperty FocalPointProperty = BindableProperty.Create(nameof(FocalPoint), typeof(Rect), typeof(CameraView), new Rect(0.5, 0.5, 0.05, 0.05));
 
     /// <summary>
     /// Binding property for use this control in MVVM.
@@ -272,6 +273,18 @@ public class CameraView : View, ICameraView
         set { SetValue(AutoStartRecordingProperty, value); }
     }
     /// <summary>
+    /// Allows for setting the Focal point when calling AutoFocus, this is a bindable property.
+    /// The point is a number between 0.0f and 1.0f on the X and Y axis. Which avoids changing of the focal point when the preview size changes.
+    /// Defaults to new PointF(0.5f, 0.5f) which is the center of the camera view port.
+    /// </summary>
+    public Rect FocalPoint
+    {
+        get { return (Rect)GetValue(FocalPointProperty); }
+        set { SetValue(FocalPointProperty, value); }
+    }
+
+
+    /// <summary>
     /// If true BarcodeDetected event will invoke only if a Results is diferent from preview Results
     /// </summary>
     public bool ControlBarcodeResultDuplicate { get; set; } = false;
@@ -431,6 +444,7 @@ public class CameraView : View, ICameraView
             cameraView.BarcodeReader.Options.PureBarcode = options.PureBarcode;
         }
     }
+
     /// <summary>
     /// Start playback of the selected camera async. "Camera" property must not be null.
     /// <paramref name="Resolution"/> Indicates the resolution for the preview and photos taken with TakePhotoAsync (must be in Camera.AvailableResolutions). If width or height is 0, max resolution will be taken.
@@ -559,11 +573,12 @@ public class CameraView : View, ICameraView
     /// <summary>
     /// Force execute the camera autofocus trigger.
     /// </summary>
-    public void ForceAutoFocus()
+    public void ForceAutoFocus(Rect? focalPoint = null)
     {
         if (Handler != null && Handler is CameraViewHandler handler)
         {
-            handler.ForceAutoFocus();
+            this.FocalPoint = focalPoint ?? this.FocalPoint;
+            handler.ForceAutoFocus(this.FocalPoint);
         }
     }
     /// <summary>
