@@ -95,8 +95,8 @@ public class CameraViewModel : INotifyPropertyChanged
         }
     }
 
-    private Rect focalPoint = new Rect(0.5f, 0.5f, 0.05, 0.05);
-    public Rect FocalPoint
+    private Point focalPoint = new Point(0.5f, 0.5f);
+    public Point FocalPoint
     {
         get => focalPoint;
         set

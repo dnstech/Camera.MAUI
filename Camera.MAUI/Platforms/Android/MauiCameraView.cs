@@ -51,6 +51,7 @@ internal class MauiCameraView: GridLayout
     private readonly ImageAvailableListener photoListener;
     private HandlerThread backgroundThread;
     private Handler backgroundHandler;
+
     private ImageReader imgReader;
 
 
@@ -188,6 +189,7 @@ internal class MauiCameraView: GridLayout
                             cameraManager.OpenCamera(cameraView.Camera.DeviceId, executorService, stateListener);
                         else
                             cameraManager.OpenCamera(cameraView.Camera.DeviceId, stateListener, null);
+                        cameraView.ActualCaptureResolution = new Microsoft.Maui.Graphics.Size(maxVideoSize.Width, maxVideoSize.Height);
                         started = true;
                     }
                     catch
@@ -267,7 +269,7 @@ internal class MauiCameraView: GridLayout
             e.PrintStackTrace();
         }
     }
-    internal async Task<CameraResult> StartCameraAsync(Microsoft.Maui.Graphics.Size PhotosResolution)
+    internal async Task<CameraResult> StartCameraAsync(Microsoft.Maui.Graphics.Size photosResolution)
     {
         var result = CameraResult.Success;
         if (initiated)
@@ -284,8 +286,8 @@ internal class MauiCameraView: GridLayout
                         StreamConfigurationMap map = (StreamConfigurationMap)camChars.Get(CameraCharacteristics.ScalerStreamConfigurationMap);
                         videoSize = ChooseVideoSize(map.GetOutputSizes(Class.FromType(typeof(ImageReader))));
                         var maxVideoSize = ChooseMaxVideoSize(map.GetOutputSizes(Class.FromType(typeof(ImageReader))));
-                        if (PhotosResolution.Width != 0 && PhotosResolution.Height != 0)
-                            maxVideoSize = new((int)PhotosResolution.Width, (int)PhotosResolution.Height);
+                        if (photosResolution.Width != 0 && photosResolution.Height != 0)
+                            maxVideoSize = new((int)photosResolution.Width, (int)photosResolution.Height);
                         imgReader = ImageReader.NewInstance(maxVideoSize.Width, maxVideoSize.Height, ImageFormatType.Jpeg, 1);
                         backgroundThread = new HandlerThread("CameraBackground");
                         backgroundThread.Start();
@@ -297,7 +299,7 @@ internal class MauiCameraView: GridLayout
                         else
                             cameraManager.OpenCamera(cameraView.Camera.DeviceId, stateListener, null);
                         timer.Start();
-
+                        cameraView.ActualCaptureResolution = new Microsoft.Maui.Graphics.Size(maxVideoSize.Width, maxVideoSize.Height);
                         started = true;
                     }
                     catch
@@ -319,7 +321,7 @@ internal class MauiCameraView: GridLayout
     internal Task<CameraResult> StopRecordingAsync()
     {
         recording = false;
-        return StartCameraAsync(cameraView.PhotosResolution);
+        return StartCameraAsync(cameraView.DesiredCaptureResolution);
     }
 
     internal CameraResult StopCamera()
@@ -681,12 +683,14 @@ internal class MauiCameraView: GridLayout
             if ((int)camChars.Get(CameraCharacteristics.ControlMaxRegionsAf) >= 1)
             {
                 Rect sensorArraySize = (Rect)camChars.Get(CameraCharacteristics.SensorInfoActiveArraySize);
-                int x = (int)(focalPoint.Y * sensorArraySize.Width());
-                int y = (int)(focalPoint.X * sensorArraySize.Height());
-                int width = (int)(sensorArraySize.Width() * focalPoint.Width); // Focus rectangle will be a percentage of camera view port
-                int height = (int)(sensorArraySize.Height() * focalPoint.Height); // Focus rectangle will be a percentage of camera view port
-                MeteringRectangle focusAreaTouch = new MeteringRectangle((int)Math.Max(x - (width * 0.5), 0),
-                                                                         (int)Math.Max(y - (height * 0.5), 0),
+                var focusArea = cameraView.CalculateRatioSquare(new(sensorArraySize.Width(), sensorArraySize.Height()));
+                int x = (int)(focusArea.X * sensorArraySize.Width());
+                int y = (int)(focusArea.Y * sensorArraySize.Height());
+                ////var size = Math.Min(sensorArraySize.Width(), sensorArraySize.Height());
+                int width = (int)(focusArea.Width * sensorArraySize.Width()); // Focus rectangle will be a percentage of camera view port
+                int height = (int)(focusArea.Height * sensorArraySize.Height()); // Focus rectangle will be a percentage of camera view port
+                MeteringRectangle focusAreaTouch = new MeteringRectangle(x,
+                                                                         y,
                                                                          width,
                                                                          height,
                                                                          MeteringRectangle.MeteringWeightMax - 1);
@@ -697,7 +701,6 @@ internal class MauiCameraView: GridLayout
             previewBuilder.Set(CaptureRequest.ControlAfMode, Java.Lang.Integer.ValueOf((int)ControlAFMode.Auto));
             previewBuilder.Set(CaptureRequest.ControlAfTrigger, Java.Lang.Integer.ValueOf((int)ControlAFTrigger.Start));
             previewSession.SetRepeatingRequest(previewBuilder.Build(), null, null);
-
         }
     }
     private static Size ChooseMaxVideoSize(Size[] choices)
@@ -787,7 +790,7 @@ internal class MauiCameraView: GridLayout
     {
         base.OnConfigurationChanged(newConfig);
         if (started && !recording)
-            await StartCameraAsync(cameraView.PhotosResolution);
+            await StartCameraAsync(cameraView.DesiredCaptureResolution);
     }
 
     private bool IsDimensionSwapped()

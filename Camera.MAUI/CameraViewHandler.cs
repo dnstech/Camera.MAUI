@@ -70,26 +70,26 @@ internal partial class CameraViewHandler : ViewHandler<CameraView, PlatformView>
     private static void MapFocalPoint(CameraViewHandler handler, CameraView cameraView)
     {
 #if WINDOWS || ANDROID || IOS || MACCATALYST
-        handler.PlatformView?.ForceAutoFocus(cameraView.FocalPoint);
+        handler.PlatformView?.ForceAutoFocus(cameraView.FocalCaptureRect);
 #endif
     }
 
-    public Task<CameraResult> StartCameraAsync(Size PhotosResolution)
+    public Task<CameraResult> StartCameraAsync(Size photosResolution)
     {
         if (PlatformView != null)
         {
 #if WINDOWS || ANDROID || IOS || MACCATALYST
-            return PlatformView.StartCameraAsync(PhotosResolution);
+            return PlatformView.StartCameraAsync(photosResolution);
 #endif
         }
         return Task.Run(() => { return CameraResult.AccessError; });
     }
-    public Task<CameraResult> StartRecordingAsync(string file, Size Resolution)
+    public Task<CameraResult> StartRecordingAsync(string file, Size resolution)
     {
         if (PlatformView != null)
         {
 #if WINDOWS || ANDROID || IOS
-            return PlatformView.StartRecordingAsync(file, Resolution);
+            return PlatformView.StartRecordingAsync(file, resolution);
 #endif
         }
         return Task.Run(() => { return CameraResult.AccessError; });
@@ -140,14 +140,14 @@ internal partial class CameraViewHandler : ViewHandler<CameraView, PlatformView>
         }
         return Task.Run(() => { Stream result = null; return result; });
     }
-    public Task<bool> SaveSnapShot(ImageFormat imageFormat, string SnapFilePath)
+    public Task<bool> SaveSnapShot(ImageFormat imageFormat, string snapFilePath)
     {
         if (PlatformView != null)
         {
 #if WINDOWS
-            return PlatformView.SaveSnapShot(imageFormat, SnapFilePath);
+            return PlatformView.SaveSnapShot(imageFormat, snapFilePath);
 #elif ANDROID || IOS || MACCATALYST
-            var task = new Task<bool>(() => { return PlatformView.SaveSnapShot(imageFormat, SnapFilePath); });
+            var task = new Task<bool>(() => { return PlatformView.SaveSnapShot(imageFormat, snapFilePath); });
             task.Start();
             return task;
 #endif

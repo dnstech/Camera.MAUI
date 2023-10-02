@@ -2,6 +2,7 @@
 using Microsoft.Maui.Controls;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using ZXing;
 using static Microsoft.Maui.ApplicationModel.Permissions;
 #if IOS || MACCATALYST
@@ -42,7 +43,10 @@ public class CameraView : View, ICameraView
     public static readonly BindableProperty AutoStartPreviewProperty = BindableProperty.Create(nameof(AutoStartPreview), typeof(bool), typeof(CameraView), false, propertyChanged: AutoStartPreviewChanged);
     public static readonly BindableProperty AutoRecordingFileProperty = BindableProperty.Create(nameof(AutoRecordingFile), typeof(string), typeof(CameraView), string.Empty);
     public static readonly BindableProperty AutoStartRecordingProperty = BindableProperty.Create(nameof(AutoStartRecording), typeof(bool), typeof(CameraView), false, propertyChanged: AutoStartRecordingChanged);
-    public static readonly BindableProperty FocalPointProperty = BindableProperty.Create(nameof(FocalPoint), typeof(Rect), typeof(CameraView), new Rect(0.5, 0.5, 0.05, 0.05));
+    public static readonly BindableProperty FocalPointProperty = BindableProperty.Create(nameof(FocalPoint), typeof(Point), typeof(CameraView), new Point(0.5, 0.5), propertyChanged: FocalPointOrSizeChanged);
+    public static readonly BindableProperty FocalSizeProperty = BindableProperty.Create(nameof(FocalSize), typeof(double), typeof(CameraView), 0.10, propertyChanged: FocalPointOrSizeChanged);
+
+    public static readonly BindableProperty DesiredCaptureResolutionProperty = BindableProperty.Create(nameof(DesiredCaptureResolution), typeof(Size), typeof(CameraView), Size.Zero, propertyChanged: DesiredCaptureResolutionChanged);
 
     /// <summary>
     /// Binding property for use this control in MVVM.
@@ -273,16 +277,94 @@ public class CameraView : View, ICameraView
         set { SetValue(AutoStartRecordingProperty, value); }
     }
     /// <summary>
-    /// Allows for setting the Focal point when calling AutoFocus, this is a bindable property.
-    /// The point is a number between 0.0f and 1.0f on the X and Y axis. Which avoids changing of the focal point when the preview size changes.
-    /// Defaults to new PointF(0.5f, 0.5f) which is the center of the camera view port.
+    /// Gets or sets the Focal point when calling AutoFocus, this is a bindable property.
+    /// The point is a ratio between 0.0f and 1.0f on the X and Y axis. Which avoids changing of the center of the focal point if the camera view size changes.
+    /// Defaults to new Rect(0.5f, 0.5f) which is the center of the camera view port.
     /// </summary>
-    public Rect FocalPoint
+    public Point FocalPoint
     {
-        get { return (Rect)GetValue(FocalPointProperty); }
+        get { return (Point)GetValue(FocalPointProperty); }
         set { SetValue(FocalPointProperty, value); }
     }
 
+    /// <summary>
+    /// Gets or sets the size of the focus area, as a percentage ratio of the shortest dimension of the camera resolution, the rectangle size is always relative to the shortest of X and Y and applies a uniform scaling to the size.
+    /// Defaults to 0.05 which is 5% of the capture size.
+    /// </summary>
+    public double FocalSize
+    {
+        get { return (double)GetValue(FocalSizeProperty); }
+        set { SetValue(FocalSizeProperty, value); }
+    }
+
+    private Rect focalPreviewRect;
+
+    private Rect focalCaptureRect;
+
+    /// <summary>
+    /// Gets the calculated focal rect as a relative percentage of the camera view's coordinate system. 
+    /// This is useful for binding a preview reticle over the camera preview with an AbsoluteLayout.
+    /// </summary>
+    public Rect FocalPreviewRect
+    {
+        get => this.focalPreviewRect;
+        private set
+        {
+            if (this.focalPreviewRect != value)
+            {
+                this.focalPreviewRect = value;
+                this.OnPropertyChanged(nameof(FocalPreviewRect));
+            }
+        }
+    }
+
+    public Rect FocalCaptureRect
+    {
+        get => this.focalCaptureRect;
+        private set
+        {
+            if (this.focalCaptureRect != value)
+            {
+                this.focalCaptureRect = value;
+                this.OnPropertyChanged(nameof(FocalCaptureRect));
+                this.ForceAutoFocus();
+            }
+        }
+    }
+
+    private void CalculateFocalRect()
+    {
+        ////var res = this.DesiredSize; // this.ActualCaptureResolution.IsZero ? this.DesiredCaptureResolution : this.ActualCaptureResolution;
+        var captureImageSize = this.ActualCaptureResolution.IsZero ? this.DesiredCaptureResolution : this.ActualCaptureResolution;
+        if (captureImageSize.IsZero)
+        {
+            return;
+        }
+
+        // FocalPoint and Size are relative to Image Capture Sensor Size.
+        // 
+        var captureFocalRectRatio = this.CalculateRatioSquare(captureImageSize);
+        var topLeft = this.CaptureRatioToPreviewRatio(captureFocalRectRatio.Location);
+        var bottomRight = this.CaptureRatioToPreviewRatio(new(captureFocalRectRatio.Right, captureFocalRectRatio.Bottom));
+        this.FocalCaptureRect = captureFocalRectRatio;
+        this.FocalPreviewRect = new Rect(topLeft.X, topLeft.Y, bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y);
+    }
+
+    internal Rect CalculateRatioSquare(Size frameSize)
+    {
+        var res = frameSize; // this.ActualCaptureResolution.IsZero ? this.DesiredCaptureResolution : this.ActualCaptureResolution;
+        var point = this.FocalPoint;
+        var focalSize = this.FocalSize;
+        var size = res.IsZero ?
+            new Size(focalSize, focalSize) :
+            res.Width > res.Height ? new Size(res.Height / res.Width * focalSize, focalSize) :
+                new Size(focalSize, res.Width / res.Height * focalSize);
+        return new Rect(
+            Math.Max(point.X - (size.Width * 0.5), 0),
+            Math.Max(point.Y - (size.Height * 0.5), 0),
+            size.Width,
+            size.Height);
+    }
 
     /// <summary>
     /// If true BarcodeDetected event will invoke only if a Results is diferent from preview Results
@@ -304,11 +386,43 @@ public class CameraView : View, ICameraView
     /// <summary>
     /// A static reference to the last CameraView created.
     /// </summary>
-    public static CameraView Current { get; set; }
+    public static CameraView Current { get; set; }    
 
     private readonly BarcodeReaderGeneric BarcodeReader;
     internal DateTime lastSnapshot = DateTime.Now;
-    internal Size PhotosResolution = new(0, 0);
+    private Size desiredCaptureResolution = new(0, 0);
+    private Size actualCaptureResolution = new(0, 0);
+
+    internal Size DesiredCaptureResolution
+    {
+        get => this.desiredCaptureResolution;
+        set
+        {
+            if (this.desiredCaptureResolution != value)
+            {
+                this.desiredCaptureResolution = value;
+                this.OnPropertyChanged(nameof(DesiredCaptureResolution));
+                this.CalculateFocalRect();
+            }
+        }
+    }
+
+    internal Size ActualCaptureResolution
+    {
+        get
+        {
+            return this.actualCaptureResolution;
+        }
+        set
+        {
+            if (this.actualCaptureResolution != value)
+            {
+                this.actualCaptureResolution = value;
+                this.OnPropertyChanged(nameof(ActualCaptureResolution));
+                this.CalculateFocalRect();
+            }
+        }
+    }
 
     public CameraView()
     {
@@ -432,6 +546,15 @@ public class CameraView : View, ICameraView
 
         }
     }
+
+    private static void FocalPointOrSizeChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (bindable is CameraView control)
+        {
+            control.CalculateFocalRect();
+        }
+    }
+
     private static void BarCodeOptionsChanged(BindableObject bindable, object oldValue, object newValue)
     {
         if (newValue != null && oldValue != newValue && bindable is CameraView cameraView && newValue is BarcodeDecodeOptions options)
@@ -445,24 +568,32 @@ public class CameraView : View, ICameraView
         }
     }
 
+    private static void DesiredCaptureResolutionChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (bindable is CameraView control)
+        {
+            control.CalculateFocalRect();
+        }
+    }
+
     /// <summary>
     /// Start playback of the selected camera async. "Camera" property must not be null.
-    /// <paramref name="Resolution"/> Indicates the resolution for the preview and photos taken with TakePhotoAsync (must be in Camera.AvailableResolutions). If width or height is 0, max resolution will be taken.
+    /// <paramref name="resolution"/> Indicates the resolution for the preview and photos taken with TakePhotoAsync (must be in Camera.AvailableResolutions). If width or height is 0, max resolution will be taken.
     /// </summary>
-    public async Task<CameraResult> StartCameraAsync(Size Resolution = default)
+    public async Task<CameraResult> StartCameraAsync(Size resolution = default)
     {
         CameraResult result = CameraResult.AccessError;
         if (Camera != null)
         {
-            PhotosResolution = Resolution;
-            if (Resolution.Width != 0 && Resolution.Height != 0)
+            this.DesiredCaptureResolution = resolution;
+            if (resolution.Width != 0 && resolution.Height != 0)
             {
-                if (!Camera.AvailableResolutions.Any(r => r.Width == Resolution.Width && r.Height == Resolution.Height))
+                if (!Camera.AvailableResolutions.Any(r => r.Width == resolution.Width && r.Height == resolution.Height))
                     return CameraResult.ResolutionNotAvailable;
             }
             if (Handler != null && Handler is CameraViewHandler handler)
             {
-                result = await handler.StartCameraAsync(Resolution);
+                result = await handler.StartCameraAsync(resolution);
                 if (result == CameraResult.Success)
                 {
                     BarCodeResults = null;
@@ -472,7 +603,9 @@ public class CameraView : View, ICameraView
             }
         }
         else
+        {
             result = CameraResult.NoCameraSelected;
+        }
 
         return result;
     }
@@ -573,12 +706,11 @@ public class CameraView : View, ICameraView
     /// <summary>
     /// Force execute the camera autofocus trigger.
     /// </summary>
-    public void ForceAutoFocus(Rect? focalPoint = null)
+    public void ForceAutoFocus()
     {
         if (Handler != null && Handler is CameraViewHandler handler)
         {
-            this.FocalPoint = focalPoint ?? this.FocalPoint;
-            handler.ForceAutoFocus(this.FocalPoint);
+            handler.ForceAutoFocus(this.FocalPreviewRect);
         }
     }
     /// <summary>
@@ -627,5 +759,43 @@ public class CameraView : View, ICameraView
             }
         }
         return true;
+    }
+
+    public Point CaptureRatioToPreviewRatio(Point captureRatio) => AspectToFillRatio(FromRatio(captureRatio, this.ActualCaptureResolution), this.ActualCaptureResolution, this.DesiredSize);
+
+    public static Point AspectToFillRatio(Point inputCoordinate, Size inputFrame, Size outputFrame)
+    {
+        // Resize to output frame by a ratio.
+        var inputAspectRatio = inputFrame.Width / inputFrame.Height;
+        var outputAspectRatio = outputFrame.Width / outputFrame.Height;
+        var sizeRatio = inputAspectRatio < outputAspectRatio ? outputFrame.Height / inputFrame.Height : outputFrame.Width / inputFrame.Width;
+        var offsetCoordinate = inputCoordinate.Offset(
+            Math.Max(0, ((outputFrame.Width / sizeRatio) - inputFrame.Width) * 0.5),
+            Math.Max(0, ((outputFrame.Height / sizeRatio) - inputFrame.Height) * 0.5));
+        return ToRatio(new Point(offsetCoordinate.X * sizeRatio, offsetCoordinate.Y * sizeRatio), outputFrame);
+    }
+
+    public static Point ToRatio(Point position, Size size) => new Point(position.X / size.Width, position.Y / size.Height);
+
+    public static Rect ToRatio(Rect rect, Size size)
+    {
+        var topLeft = ToRatio(rect.Location, size);
+        var bottomRight = ToRatio(new Point(rect.Right, rect.Bottom), size);
+        return new Rect(topLeft, new(Math.Min(bottomRight.X, 1.0), Math.Min(bottomRight.Y, 1.0)));
+    }
+
+    public static Point FromRatio(Point position, Size size) => new Point(position.X * size.Width, position.Y * size.Height);
+
+    public static Rect FromRatio(Rect rect, Size size)
+    {
+        var topLeft = FromRatio(rect.Location, size);
+        var bottomRight = FromRatio(new Point(rect.Right, rect.Bottom), size);
+        return new Rect(topLeft, new(Math.Min(bottomRight.X, size.Width), Math.Min(bottomRight.Y, size.Height)));
+    }
+
+    public void SetFocalPointFromTap(Point position)
+    {
+        // Translate the camera viewport size into a ratio from left to right, top to bottom (0.0 to 1.0).
+        this.FocalPoint = AspectToFillRatio(position, this.DesiredSize, this.ActualCaptureResolution);
     }
 }

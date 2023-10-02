@@ -78,7 +78,12 @@ public sealed partial class MauiCameraView : UserControl, IDisposable
                 {
                     new RegionOfInterest()
                     {
-                        Bounds = new global::Windows.Foundation.Rect(focalRect.X, focalRect.Y, focalRect.Width, focalRect.Height)
+                        AutoFocusEnabled = true,
+                        AutoExposureEnabled = true,
+                        Type = RegionOfInterestType.Unknown,
+                        Bounds = new global::Windows.Foundation.Rect(focalRect.X, focalRect.Y, focalRect.Width, focalRect.Height),
+                        BoundsNormalized = false,
+                        Weight = 100
                     }
                 });
 
@@ -187,7 +192,7 @@ public sealed partial class MauiCameraView : UserControl, IDisposable
             }
         }
     }
-    internal async Task<CameraResult> StartRecordingAsync(string file, Size Resolution)
+    internal async Task<CameraResult> StartRecordingAsync(string file, Size resolution)
     {
         CameraResult result = CameraResult.Success;
 
@@ -218,10 +223,10 @@ public sealed partial class MauiCameraView : UserControl, IDisposable
                     if (frameSource != null)
                     {
                         MediaFrameFormat frameFormat;
-                        if (Resolution.Width <= 0 || Resolution.Height <= 0)
+                        if (resolution.Width <= 0 || resolution.Height <= 0)
                             frameFormat = frameSource.SupportedFormats.OrderByDescending(f => f.VideoFormat.Width * f.VideoFormat.Height).FirstOrDefault();
                         else
-                            frameFormat = frameSource.SupportedFormats.First(f => f.VideoFormat.Width == Resolution.Width && f.VideoFormat.Height == Resolution.Height);
+                            frameFormat = frameSource.SupportedFormats.First(f => f.VideoFormat.Width == resolution.Width && f.VideoFormat.Height == resolution.Height);
 
                         if (frameFormat != null)
                         {
@@ -233,6 +238,8 @@ public sealed partial class MauiCameraView : UserControl, IDisposable
                             await mediaRecording.StartAsync();
                             recording = true;
                         }
+
+                        cameraView.ActualCaptureResolution = new(frameFormat.VideoFormat.Width, frameFormat.VideoFormat.Height);
                     }
                     else
                         result = CameraResult.NoVideoFormatsAvailable;
@@ -256,7 +263,7 @@ public sealed partial class MauiCameraView : UserControl, IDisposable
     }
     internal async Task<CameraResult> StopRecordingAsync()
     {
-        return await StartCameraAsync(cameraView.PhotosResolution);
+        return await StartCameraAsync(cameraView.DesiredCaptureResolution);
     }
     internal async Task<CameraResult> StartCameraAsync(Size PhotosResolution)
     {

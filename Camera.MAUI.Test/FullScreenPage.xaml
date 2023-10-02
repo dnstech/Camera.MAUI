@@ -5,7 +5,19 @@
              x:Class="Camera.MAUI.Test.FullScreenPage"
              Title="FullScreenPage">
     <Grid HorizontalOptions="Fill" VerticalOptions="Fill">
-        <cv:CameraView x:Name="cameraView" HorizontalOptions="Fill" VerticalOptions="Fill"/>
+        <AbsoluteLayout x:Name="cameraViewContainer" HorizontalOptions="Fill" VerticalOptions="Fill" Background="Black">
+            <AbsoluteLayout.GestureRecognizers>
+                <TapGestureRecognizer Tapped="TapGestureRecognizer_Tapped"/>
+            </AbsoluteLayout.GestureRecognizers>
+            <cv:CameraView x:Name="cameraView" HorizontalOptions="Fill" VerticalOptions="Fill" AbsoluteLayout.LayoutBounds="0,0,1,1" AbsoluteLayout.LayoutFlags="All" />
+            <Border x:Name="focusReticle" Background="Transparent"
+                            Stroke="CornflowerBlue"
+                            StrokeThickness="2"
+                            BindingContext="{x:Reference cameraView}"
+                            AbsoluteLayout.LayoutFlags="All"
+                            AbsoluteLayout.LayoutBounds="{Binding FocalPreviewRect, Mode=OneWay}"></Border>
+        </AbsoluteLayout>
         <Button x:Name="controlButton" Text="Play" TextColor="DarkGray" VerticalOptions="End" HorizontalOptions="Center" Clicked="Button_Clicked" Margin="15" Background="#66666666"/>
+        <Label  VerticalOptions="End" HorizontalOptions="End" BindingContext="{x:Reference cameraView}" Text="{Binding FocalPreviewRect, Mode=OneWay}"></Label>
     </Grid>
 </ContentPage>

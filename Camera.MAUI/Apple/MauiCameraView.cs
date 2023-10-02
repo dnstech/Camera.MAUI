@@ -7,8 +7,12 @@ using CoreImage;
 using CoreMedia;
 using CoreVideo;
 using Foundation;
+using JavaScriptCore;
 using MediaPlayer;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific;
+using Microsoft.Maui.Graphics;
+using System;
 using System.IO;
 using UIKit;
 
@@ -134,7 +138,7 @@ internal class MauiCameraView : UIView, IAVCaptureVideoDataOutputSampleBufferDel
                         };
                         frames = 0;
                         captureDevice = camDevices.First(d => d.UniqueID == cameraView.Camera.DeviceId);
-                        ForceAutoFocus(this.cameraView.FocalPoint);
+                        ForceAutoFocus(this.cameraView.FocalCaptureRect);
                         captureInput = new AVCaptureDeviceInput(captureDevice, out var err);
                         captureSession.AddInput(captureInput);
                         micDevice = micDevices.First(d => d.UniqueID == cameraView.Microphone.DeviceId);
@@ -172,7 +176,7 @@ internal class MauiCameraView : UIView, IAVCaptureVideoDataOutputSampleBufferDel
     }
     public Task<CameraResult> StopRecordingAsync()
     {
-        return StartCameraAsync(cameraView.PhotosResolution);
+        return StartCameraAsync(cameraView.DesiredCaptureResolution);
     }
 
     public async Task<CameraResult> StartCameraAsync(Size PhotosResolution)
@@ -197,7 +201,7 @@ internal class MauiCameraView : UIView, IAVCaptureVideoDataOutputSampleBufferDel
                         };
                         frames = 0;
                         captureDevice = camDevices.First(d => d.UniqueID == cameraView.Camera.DeviceId);
-                        ForceAutoFocus(this.cameraView.FocalPoint);
+                        ForceAutoFocus(this.cameraView.FocalCaptureRect);
                         captureInput = new AVCaptureDeviceInput(captureDevice, out var err);
                         captureSession.AddInput(captureInput);
                         captureSession.AddOutput(videoDataOutput);
@@ -299,16 +303,6 @@ internal class MauiCameraView : UIView, IAVCaptureVideoDataOutputSampleBufferDel
             captureDevice.LockForConfiguration(out NSError error);
             if (error == null)
             {
-                if (captureDevice.FocusPointOfInterestSupported)
-                {
-                    captureDevice.FocusPointOfInterest = new CGPoint(focalRect.Center.X, focalRect.Center.Y);
-                }
-
-                if (captureDevice.ExposurePointOfInterestSupported)
-                {
-                    captureDevice.ExposurePointOfInterest = new CGPoint(focalRect.Center.X, focalRect.Center.Y);
-                }
-
                 if (captureDevice.IsFocusModeSupported(AVCaptureFocusMode.ContinuousAutoFocus))
                 {
                     captureDevice.FocusMode = AVCaptureFocusMode.ContinuousAutoFocus;
@@ -317,6 +311,21 @@ internal class MauiCameraView : UIView, IAVCaptureVideoDataOutputSampleBufferDel
                 {
                     captureDevice.FocusMode = AVCaptureFocusMode.AutoFocus;
                 }
+
+                // This property’s CGPoint value uses a coordinate system where {0,0} is the top - left of the picture area and {1,1} is the bottom - right.
+                // This coordinate system is always relative to a landscape device orientation with the home button on the right, regardless of the actual device orientation.
+                // You can convert between this coordinate system and view coordinates using AVCaptureVideoPreviewLayer methods.
+                var captureDeviceRelativePoint = PreviewLayer.CaptureDevicePointOfInterestForPoint(new CGPoint(PreviewLayer.Frame.Width * focalRect.Center.X, PreviewLayer.Frame.Height * focalRect.Center.Y));
+                if (captureDevice.FocusPointOfInterestSupported)
+                {
+                    captureDevice.FocusPointOfInterest = captureDeviceRelativePoint;
+                }
+
+                if (captureDevice.ExposurePointOfInterestSupported)
+                {
+                    captureDevice.ExposurePointOfInterest = captureDeviceRelativePoint;
+                }
+
                 captureDevice.UnlockForConfiguration();
             }
         }

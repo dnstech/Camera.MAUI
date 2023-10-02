@@ -40,4 +40,12 @@ public partial class FullScreenPage : ContentPage
         }
         playing = !playing;
     }
+
+    private void TapGestureRecognizer_Tapped(object sender, TappedEventArgs e)
+    {
+        if (e.GetPosition(this.cameraView) is Point position)
+        {
+            this.cameraView.SetFocalPointFromTap(position);
+        }
+    }
 }
