@@ -683,18 +683,16 @@ internal class MauiCameraView: GridLayout
             if ((int)camChars.Get(CameraCharacteristics.ControlMaxRegionsAf) >= 1)
             {
                 Rect sensorArraySize = (Rect)camChars.Get(CameraCharacteristics.SensorInfoActiveArraySize);
-                var focusArea = cameraView.CalculateRatioSquare(new(sensorArraySize.Width(), sensorArraySize.Height()));
-                int x = (int)(focusArea.X * sensorArraySize.Width());
-                int y = (int)(focusArea.Y * sensorArraySize.Height());
-                ////var size = Math.Min(sensorArraySize.Width(), sensorArraySize.Height());
-                int width = (int)(focusArea.Width * sensorArraySize.Width()); // Focus rectangle will be a percentage of camera view port
-                int height = (int)(focusArea.Height * sensorArraySize.Height()); // Focus rectangle will be a percentage of camera view port
-                MeteringRectangle focusAreaTouch = new MeteringRectangle(x,
-                                                                         y,
-                                                                         width,
-                                                                         height,
+                var sensorSize = new Microsoft.Maui.Graphics.Size(sensorArraySize.Width(), sensorArraySize.Height());
+                var topLeft = cameraView.FocalCaptureRect.Location.FromRatioOf(sensorSize, true);
+                var (width, height) = cameraView.FocalCaptureRect.BottomRight().FromRatioOf(sensorSize, true) - topLeft;
+                MeteringRectangle focusAreaTouch = new MeteringRectangle((int)topLeft.X,
+                                                                         (int)topLeft.Y,
+                                                                         (int)width,
+                                                                         (int)height,
                                                                          MeteringRectangle.MeteringWeightMax - 1);
                 previewBuilder.Set(CaptureRequest.ControlAfRegions, new MeteringRectangle[] { focusAreaTouch });
+                previewBuilder.Set(CaptureRequest.ControlAeRegions, new MeteringRectangle[] { focusAreaTouch });                
             }
 
             // Start auto focusing again

@@ -304,6 +304,7 @@ public class CameraView : View, ICameraView
     /// <summary>
     /// Gets the calculated focal rect as a relative percentage of the camera view's coordinate system. 
     /// This is useful for binding a preview reticle over the camera preview with an AbsoluteLayout.
+    /// NOTE: Can have negative values if capture rectangle is outside preview crop area.
     /// </summary>
     public Rect FocalPreviewRect
     {
@@ -318,6 +319,9 @@ public class CameraView : View, ICameraView
         }
     }
 
+    /// <summary>
+    /// Gets the calculated focal region as a relative percentage of the capture frame.
+    /// </summary>
     public Rect FocalCaptureRect
     {
         get => this.focalCaptureRect;
@@ -334,36 +338,20 @@ public class CameraView : View, ICameraView
 
     private void CalculateFocalRect()
     {
-        ////var res = this.DesiredSize; // this.ActualCaptureResolution.IsZero ? this.DesiredCaptureResolution : this.ActualCaptureResolution;
         var captureImageSize = this.ActualCaptureResolution.IsZero ? this.DesiredCaptureResolution : this.ActualCaptureResolution;
         if (captureImageSize.IsZero)
         {
             return;
         }
 
-        // FocalPoint and Size are relative to Image Capture Sensor Size.
-        // 
-        var captureFocalRectRatio = this.CalculateRatioSquare(captureImageSize);
-        var topLeft = this.CaptureRatioToPreviewRatio(captureFocalRectRatio.Location);
-        var bottomRight = this.CaptureRatioToPreviewRatio(new(captureFocalRectRatio.Right, captureFocalRectRatio.Bottom));
-        this.FocalCaptureRect = captureFocalRectRatio;
-        this.FocalPreviewRect = new Rect(topLeft.X, topLeft.Y, bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y);
-    }
+        var previewSize = this.DesiredSize;
 
-    internal Rect CalculateRatioSquare(Size frameSize)
-    {
-        var res = frameSize; // this.ActualCaptureResolution.IsZero ? this.DesiredCaptureResolution : this.ActualCaptureResolution;
-        var point = this.FocalPoint;
-        var focalSize = this.FocalSize;
-        var size = res.IsZero ?
-            new Size(focalSize, focalSize) :
-            res.Width > res.Height ? new Size(res.Height / res.Width * focalSize, focalSize) :
-                new Size(focalSize, res.Width / res.Height * focalSize);
-        return new Rect(
-            Math.Max(point.X - (size.Width * 0.5), 0),
-            Math.Max(point.Y - (size.Height * 0.5), 0),
-            size.Width,
-            size.Height);
+        // FocalPoint and Size are relative to Image Capture Sensor Size.
+        var captureFocalRectRatio = this.FocalPoint.ToRectFromCenterPointAsRatioOf(captureImageSize, this.FocalSize);
+        var topLeftPreviewPixel = captureFocalRectRatio.Location.FromRatioOf(captureImageSize).CameraToPreview(captureImageSize, previewSize).ToRatioOf(previewSize);
+        var bottomRightPixel = captureFocalRectRatio.BottomRight().FromRatioOf(captureImageSize).CameraToPreview(captureImageSize, previewSize).ToRatioOf(previewSize);
+        this.FocalCaptureRect = captureFocalRectRatio;
+        this.FocalPreviewRect = new Rect(topLeftPreviewPixel, bottomRightPixel - topLeftPreviewPixel);
     }
 
     /// <summary>
@@ -761,41 +749,23 @@ public class CameraView : View, ICameraView
         return true;
     }
 
-    public Point CaptureRatioToPreviewRatio(Point captureRatio) => AspectToFillRatio(FromRatio(captureRatio, this.ActualCaptureResolution), this.ActualCaptureResolution, this.DesiredSize);
-
-    public static Point AspectToFillRatio(Point inputCoordinate, Size inputFrame, Size outputFrame)
-    {
-        // Resize to output frame by a ratio.
-        var inputAspectRatio = inputFrame.Width / inputFrame.Height;
-        var outputAspectRatio = outputFrame.Width / outputFrame.Height;
-        var sizeRatio = inputAspectRatio < outputAspectRatio ? outputFrame.Height / inputFrame.Height : outputFrame.Width / inputFrame.Width;
-        var offsetCoordinate = inputCoordinate.Offset(
-            Math.Max(0, ((outputFrame.Width / sizeRatio) - inputFrame.Width) * 0.5),
-            Math.Max(0, ((outputFrame.Height / sizeRatio) - inputFrame.Height) * 0.5));
-        return ToRatio(new Point(offsetCoordinate.X * sizeRatio, offsetCoordinate.Y * sizeRatio), outputFrame);
-    }
-
-    public static Point ToRatio(Point position, Size size) => new Point(position.X / size.Width, position.Y / size.Height);
-
-    public static Rect ToRatio(Rect rect, Size size)
-    {
-        var topLeft = ToRatio(rect.Location, size);
-        var bottomRight = ToRatio(new Point(rect.Right, rect.Bottom), size);
-        return new Rect(topLeft, new(Math.Min(bottomRight.X, 1.0), Math.Min(bottomRight.Y, 1.0)));
-    }
-
-    public static Point FromRatio(Point position, Size size) => new Point(position.X * size.Width, position.Y * size.Height);
-
-    public static Rect FromRatio(Rect rect, Size size)
-    {
-        var topLeft = FromRatio(rect.Location, size);
-        var bottomRight = FromRatio(new Point(rect.Right, rect.Bottom), size);
-        return new Rect(topLeft, new(Math.Min(bottomRight.X, size.Width), Math.Min(bottomRight.Y, size.Height)));
-    }
-
     public void SetFocalPointFromTap(Point position)
     {
+        var captureImageSize = this.ActualCaptureResolution.IsZero ? this.DesiredCaptureResolution : this.ActualCaptureResolution;
+        if (captureImageSize.IsZero)
+        {
+            return;
+        }
+
+        var previewSize = this.DesiredSize;
+
         // Translate the camera viewport size into a ratio from left to right, top to bottom (0.0 to 1.0).
-        this.FocalPoint = AspectToFillRatio(position, this.DesiredSize, this.ActualCaptureResolution);
+        this.FocalPoint = position.PreviewToCamera(previewSize, captureImageSize).ToRatioOf(captureImageSize);
+    }
+
+    protected override void OnSizeAllocated(double width, double height)
+    {
+        base.OnSizeAllocated(width, height);
+        this.CalculateFocalRect();
     }
 }
