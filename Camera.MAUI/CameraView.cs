@@ -381,10 +381,10 @@ public class CameraView : View, ICameraView
     private Size desiredCaptureResolution = new(0, 0);
     private Size actualCaptureResolution = new(0, 0);
 
-    internal Size DesiredCaptureResolution
+    public Size DesiredCaptureResolution
     {
         get => this.desiredCaptureResolution;
-        set
+        internal set
         {
             if (this.desiredCaptureResolution != value)
             {
@@ -395,13 +395,13 @@ public class CameraView : View, ICameraView
         }
     }
 
-    internal Size ActualCaptureResolution
+    public Size ActualCaptureResolution
     {
         get
         {
             return this.actualCaptureResolution;
         }
-        set
+        internal set
         {
             if (this.actualCaptureResolution != value)
             {
@@ -657,11 +657,11 @@ public class CameraView : View, ICameraView
     /// </summary>
     /// <param name="imageFormat">The capture image format</param>
     /// <returns>A stream with the photo info</returns>
-    public async Task<Stream> TakePhotoAsync(ImageFormat imageFormat = ImageFormat.JPEG)
+    public async Task<Stream> TakePhotoAsync(ImageFormat imageFormat = ImageFormat.JPEG, int compressionQuality = 100)
     {
         if (Handler != null && Handler is CameraViewHandler handler)
         {
-            return await handler.TakePhotoAsync(imageFormat);
+            return await handler.TakePhotoAsync(imageFormat, compressionQuality);
         }
         return null;
     }

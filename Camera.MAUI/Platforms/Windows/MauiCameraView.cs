@@ -453,7 +453,7 @@ public sealed partial class MauiCameraView : UserControl, IDisposable
         if (started) StopCameraAsync().Wait();
         Dispose();
     }
-    internal async Task<Stream> TakePhotoAsync(ImageFormat imageFormat)
+    internal async Task<Stream> TakePhotoAsync(ImageFormat imageFormat, int compressionQuality)
     {
         /*
         CameraCaptureUI cameraCaptureUI = new CameraCaptureUI();
@@ -494,7 +494,11 @@ public sealed partial class MauiCameraView : UserControl, IDisposable
                     _ => BitmapEncoder.PngEncoderId
                 };
                 MemoryStream stream = new();
-                BitmapEncoder encoder = await BitmapEncoder.CreateAsync(iformat, stream.AsRandomAccessStream());
+                var propertySet = new BitmapPropertySet
+                {
+                    { "ImageQuality", new BitmapTypedValue(compressionQuality / 100f, global::Windows.Foundation.PropertyType.Single) }
+                };
+                BitmapEncoder encoder = await BitmapEncoder.CreateAsync(iformat, stream.AsRandomAccessStream(), propertySet);
                 var img = SoftwareBitmap.Convert(snapshot, BitmapPixelFormat.Rgba8, BitmapAlphaMode.Premultiplied);
                 encoder.SetSoftwareBitmap(img);
                 try

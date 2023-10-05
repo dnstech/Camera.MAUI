@@ -128,14 +128,14 @@ internal partial class CameraViewHandler : ViewHandler<CameraView, PlatformView>
         }
         return null;
     }
-    public Task<Stream> TakePhotoAsync(ImageFormat imageFormat)
+    public Task<Stream> TakePhotoAsync(ImageFormat imageFormat, int compressionQuality)
     {
         if (PlatformView != null)
         {
 #if  IOS || MACCATALYST || WINDOWS
-            return PlatformView.TakePhotoAsync(imageFormat);
+            return PlatformView.TakePhotoAsync(imageFormat, compressionQuality);
 #elif ANDROID
-            return Task.Run(() => { return PlatformView.TakePhotoAsync(imageFormat); });
+            return Task.Run(() => { return PlatformView.TakePhotoAsync(imageFormat, compressionQuality); });
 #endif
         }
         return Task.Run(() => { Stream result = null; return result; });

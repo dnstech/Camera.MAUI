@@ -457,7 +457,7 @@ internal class MauiCameraView: GridLayout
         catch { }
         return bitmap;
     }
-    internal async Task<System.IO.Stream> TakePhotoAsync(ImageFormat imageFormat)
+    internal async Task<System.IO.Stream> TakePhotoAsync(ImageFormat imageFormat, int compressionQuality)
     {
         MemoryStream stream = null;
         if (started && !recording)
@@ -517,7 +517,7 @@ internal class MauiCameraView: GridLayout
                                 _ => Bitmap.CompressFormat.Png
                             };
                             stream = new();
-                            bitmap.Compress(iformat, 100, stream);
+                            await bitmap.CompressAsync(iformat, compressionQuality, stream);
                             stream.Position = 0;
                         }
                     }

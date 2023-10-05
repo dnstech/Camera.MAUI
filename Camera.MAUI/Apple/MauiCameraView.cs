@@ -344,7 +344,7 @@ internal class MauiCameraView : UIView, IAVCaptureVideoDataOutputSampleBufferDel
         }
     }
 
-    internal async Task<Stream> TakePhotoAsync(ImageFormat imageFormat)
+    internal async Task<Stream> TakePhotoAsync(ImageFormat imageFormat, int compressionQuality)
     {
         photoError = photoTaken = false;
         var photoSettings = AVCapturePhotoSettings.Create();
@@ -373,7 +373,7 @@ internal class MauiCameraView : UIView, IAVCaptureVideoDataOutputSampleBufferDel
             switch (imageFormat)
             {
                 case ImageFormat.JPEG:
-                    photo.AsJPEG().AsStream().CopyTo(stream);
+                    photo.AsJPEG(compressionQuality / 100f).AsStream().CopyTo(stream);
                     break;
                 default:
                     photo.AsPNG().AsStream().CopyTo(stream);
