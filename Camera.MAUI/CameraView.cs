@@ -345,6 +345,10 @@ public class CameraView : View, ICameraView
         }
 
         var previewSize = this.DesiredSize;
+        if (previewSize.IsZero)
+        {
+            return;
+        }
 
         // FocalPoint and Size are relative to Image Capture Sensor Size.
         var captureFocalRectRatio = this.FocalPoint.ToRectFromCenterPointAsRatioOf(captureImageSize, this.FocalSize);
