@@ -14,11 +14,8 @@ using Rect = Android.Graphics.Rect;
 using SizeF = Android.Util.SizeF;
 using Android.Runtime;
 using Android.OS;
-using Android.Renderscripts;
 using RectF = Android.Graphics.RectF;
 using Android.Content.Res;
-using Microsoft.Maui.Controls;
-using static Android.Hardware.Camera;
 
 namespace Camera.MAUI.Platforms.Android;
 
